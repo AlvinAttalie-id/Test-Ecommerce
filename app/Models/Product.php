@@ -33,7 +33,7 @@ class Product extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function detailOrders()
+    public function details()
     {
         return $this->hasMany(DetailOrder::class);
     }
