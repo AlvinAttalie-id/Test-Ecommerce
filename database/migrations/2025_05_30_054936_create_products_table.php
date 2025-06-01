@@ -15,10 +15,10 @@ return new class extends Migration
             $table->id();
             $table->string('product_name');
             $table->string('image_product');
-            $table->json('gallery_product')->nullable(); // Assuming gallery_product can be null
+            $table->json('gallery_product')->nullable();
             $table->integer('price');
             $table->integer('qty');
-            $table->text('description')->nullable(); // Assuming description can be null
+            $table->text('description')->nullable();
             $table->foreignId('category_id')->constrained('category')->onDelete('cascade');
             $table->softDeletes();
             $table->timestamps();
