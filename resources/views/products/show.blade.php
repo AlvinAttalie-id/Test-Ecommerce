@@ -50,9 +50,11 @@
             <p class="mb-2 font-semibold text-gray-800">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
             <p class="mb-4">{{ $product->description }}</p>
 
-            <a href="#" class="inline-block px-6 py-2 text-white bg-blue-600 rounded hover:bg-blue-700">
+            <a href="{{ route('order.create', ['product' => $product->id]) }}"
+                class="inline-block px-6 py-2 text-white bg-blue-600 rounded hover:bg-blue-700">
                 Pesan Sekarang
             </a>
+
 
         </div>
     </div>
