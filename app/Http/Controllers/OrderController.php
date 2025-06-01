@@ -92,12 +92,17 @@ class OrderController extends Controller
         return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat!');
     }
 
-    public function history()
+    public function history(Request $request)
     {
-        $orders = Order::with(['details.product', 'payment'])
+        $query = Order::with(['details.product', 'payment'])
             ->where('user_id', Auth::id())
-            ->orderBy('order_date', 'desc')
-            ->get();
+            ->orderBy('order_date', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $orders = $query->paginate(5)->withQueryString();
 
         return view('transactions.history', compact('orders'));
     }

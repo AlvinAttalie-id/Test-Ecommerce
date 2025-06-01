@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\TransactionResource\Pages;
 use App\Models\Order;
+use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -11,6 +12,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Forms\Components\Select;
 
 class TransactionResource extends Resource
 {
@@ -21,14 +23,42 @@ class TransactionResource extends Resource
 
     public static function form(Form $form): Form
     {
-        return $form->schema([]);
+        return $form->schema([
+            Select::make('status')
+                ->label('Status Order')
+                ->options([
+                    'pending' => 'Pending',
+                    'paid' => 'Paid',
+                    'failed' => 'Failed',
+                    'shipped' => 'Shipped',
+                    'completed' => 'Completed',
+                ])
+                ->required(),
+
+            Select::make('payment_status')
+                ->label('Status Pembayaran')
+                ->options([
+                    'pending' => 'Pending',
+                    'paid' => 'Paid',
+                    'failed' => 'Failed',
+                ])
+                ->required()
+                ->default(fn($record) => $record?->payment?->payment_status)
+                ->disabled(fn($record) => $record?->payment === null)
+                ->visible(fn($record) => $record?->payment !== null)
+                ->afterStateUpdated(function ($state, $set, $get, $record) {
+                    if ($record && $record->payment) {
+                        $record->payment->payment_status = $state;
+                        $record->payment->save();
+                    }
+                }),
+        ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('id')->label('ID'),
                 TextColumn::make('user.name')->label('Nama User'),
                 TextColumn::make('details.0.product.product_name')->label('Produk'),
                 TextColumn::make('details.0.quantity')->label('Jumlah'),
@@ -45,13 +75,22 @@ class TransactionResource extends Resource
                         'failed' => 'danger',
                         default => 'gray',
                     }),
-                TextColumn::make('status')->label('Status Order')->badge(),
+                TextColumn::make('status')
+                    ->label('Status Order')
+                    ->badge()
+                    ->color(fn($state) => match (true) {
+                        in_array($state, ['pending', 'paid', 'shipped']) => 'warning',
+                        $state === 'failed' => 'danger',
+                        $state === 'completed' => 'success',
+                        default => 'secondary',
+                    }),
+
             ])
             ->filters([
                 Filter::make('payment_status')
                     ->label('Status Pembayaran')
                     ->form([
-                        \Filament\Forms\Components\Select::make('status')
+                        Select::make('status')
                             ->label('Status')
                             ->options([
                                 'pending' => 'Pending',
@@ -73,7 +112,15 @@ class TransactionResource extends Resource
             ->modifyQueryUsing(
                 fn(Builder $query) =>
                 $query->with(['user', 'details.product', 'payment'])
-            );
+            )
+            ->actions([
+                Tables\Actions\EditAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
     }
 
     public static function getRelations(): array
@@ -85,6 +132,7 @@ class TransactionResource extends Resource
     {
         return [
             'index' => Pages\ListTransactions::route('/'),
+            'edit' => Pages\EditTransaction::route('/{record}/edit'),
         ];
     }
 }

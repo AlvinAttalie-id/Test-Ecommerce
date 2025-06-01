@@ -20,6 +20,10 @@
                         {{ __('Produk') }}
                     </x-nav-link>
 
+                    <x-nav-link :href="null" :active="false" class="opacity-50 cursor-not-allowed">
+                        {{ __('Keranjang') }}
+                    </x-nav-link>
+
                     <x-nav-link :href="route('transactions.history')" :active="request()->routeIs('transactions.history')">
                         {{ __('Riwayat Transaksi') }}
                     </x-nav-link>

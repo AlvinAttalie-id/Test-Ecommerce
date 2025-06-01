@@ -28,8 +28,10 @@ Route::middleware('auth')->group(function () {
     // Order
     Route::get('/order/{product}', [OrderController::class, 'create'])->name('order.create');
     Route::post('/order', [OrderController::class, 'store'])->name('order.store');
-    Route::get('/transactions', [OrderController::class, 'history'])->name('transactions.history');
     Route::post('/midtrans/callback', [PaymentController::class, 'handleCallback']);
+
+    // Transaksi
+    Route::get('/transactions', [OrderController::class, 'history'])->name('transactions.history');
 });
 
 
