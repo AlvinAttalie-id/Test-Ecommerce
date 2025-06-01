@@ -26,7 +26,10 @@
                     <select name="payment_method" class="w-full px-3 py-2 border rounded">
                         <option value="transfer">Transfer Bank</option>
                         <option value="cod">Bayar di Tempat (COD)</option>
+                        <option value="midtrans">Bayar via Midtrans</option>
                     </select>
+
+
                 </div>
 
                 <button type="submit" class="px-6 py-2 text-white bg-blue-600 rounded hover:bg-blue-700">Konfirmasi
@@ -35,3 +38,7 @@
         </div>
     </div>
 </x-app-layout>
+@push('scripts')
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ config('midtrans.client_key') }}">
+    </script>
+@endpush

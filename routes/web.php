@@ -3,6 +3,7 @@
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PaymentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -28,6 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/order/{product}', [OrderController::class, 'create'])->name('order.create');
     Route::post('/order', [OrderController::class, 'store'])->name('order.store');
     Route::get('/transactions', [OrderController::class, 'history'])->name('transactions.history');
+    Route::post('/midtrans/callback', [PaymentController::class, 'handleCallback']);
 });
 
 

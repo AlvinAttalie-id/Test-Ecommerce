@@ -9,6 +9,7 @@ use App\Models\Product;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use App\Services\MidtransService;
 
 class OrderController extends Controller
 {
@@ -18,7 +19,7 @@ class OrderController extends Controller
         return view('order.create', compact('product'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, MidtransService $midtrans)
     {
         $request->validate([
             'product_id' => 'required|exists:product,id',
@@ -30,16 +31,16 @@ class OrderController extends Controller
         $product = Product::findOrFail($request->product_id);
         $subtotal = $product->price * $request->quantity;
 
-        // 1. Buat Order
+        // Buat Order
         $order = Order::create([
             'user_id' => Auth::id(),
-            'order_date' => Carbon::now(),
+            'order_date' => now(),
             'total_price' => $subtotal,
             'status' => 'pending',
             'shipping_address' => $request->shipping_address,
         ]);
 
-        // 2. Buat Detail Order
+        // Detail Order
         DetailOrder::create([
             'order_id' => $order->id,
             'product_id' => $product->id,
@@ -47,10 +48,43 @@ class OrderController extends Controller
             'price' => $product->price,
         ]);
 
-        // 3. Buat Payment otomatis
+        // === Jika Pembayaran via Midtrans ===
+        if ($request->payment_method === 'midtrans') {
+            $payload = [
+                'transaction_details' => [
+                    'order_id' => 'ORDER-' . $order->id . '-' . now()->timestamp,
+                    'gross_amount' => $subtotal,
+                ],
+                'customer_details' => [
+                    'first_name' => Auth::user()->name,
+                    'email' => Auth::user()->email,
+                ],
+                'item_details' => [[
+                    'id' => $product->id,
+                    'price' => $product->price,
+                    'quantity' => $request->quantity,
+                    'name' => $product->product_name,
+                ]],
+            ];
+
+            $snap = $midtrans->createTransaction($payload);
+
+            // Simpan Payment Midtrans
+            Payment::create([
+                'order_id' => $order->id,
+                'payment_date' => now(),
+                'payment_method' => 'midtrans',
+                'payment_status' => 'pending',
+            ]);
+
+            // Redirect ke Midtrans Snap URL
+            return redirect($snap->redirect_url);
+        }
+
+        // === Jika bukan Midtrans (transfer / cod) ===
         Payment::create([
             'order_id' => $order->id,
-            'payment_date' => Carbon::now(),
+            'payment_date' => now(),
             'payment_method' => $request->payment_method,
             'payment_status' => 'pending',
         ]);
