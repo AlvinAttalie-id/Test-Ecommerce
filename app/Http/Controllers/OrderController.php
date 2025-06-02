@@ -9,7 +9,6 @@ use App\Models\Product;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 use App\Services\MidtransService;
 
 class OrderController extends Controller
@@ -18,6 +17,8 @@ class OrderController extends Controller
     {
         return view('order.create', compact('product'));
     }
+
+
 
     public function store(Request $request, MidtransService $midtrans)
     {
@@ -35,7 +36,7 @@ class OrderController extends Controller
             'user_id' => Auth::id(),
             'order_date' => now(),
             'total_price' => $subtotal,
-            'status' => $request->payment_method === 'cod' ? 'paid' : 'pending',
+            'status' => 'pending',
             'shipping_address' => $request->shipping_address,
         ]);
 
@@ -46,19 +47,15 @@ class OrderController extends Controller
             'price' => $product->price,
         ]);
 
-        $paymentStatus = $request->payment_method === 'cod' ? 'paid' : 'pending';
-
         Payment::create([
             'order_id' => $order->id,
             'payment_date' => now(),
             'payment_method' => $request->payment_method,
-            'payment_status' => $paymentStatus,
+            'payment_status' => 'pending',
         ]);
 
-        // Jika COD, langsung kurangi stok
         if ($request->payment_method === 'cod') {
-            $product->decrement('qty', $request->quantity);
-            return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat dan dibayar (COD).');
+            return redirect()->route('dashboard')->with('success', 'Pesanan COD berhasil dibuat. Menunggu konfirmasi admin.');
         }
 
         // Midtrans
@@ -148,13 +145,11 @@ class OrderController extends Controller
             return $item['price'] * $item['quantity'];
         });
 
-        $orderStatus = $request->payment_method === 'cod' ? 'paid' : 'pending';
-
         $order = Order::create([
             'user_id' => Auth::id(),
             'order_date' => now(),
             'total_price' => $subtotal,
-            'status' => $orderStatus,
+            'status' => 'pending',
             'shipping_address' => $request->shipping_address,
         ]);
 
@@ -167,26 +162,18 @@ class OrderController extends Controller
             ]);
         }
 
-        $paymentStatus = $request->payment_method === 'cod' ? 'paid' : 'pending';
-
         Payment::create([
             'order_id' => $order->id,
             'payment_date' => now(),
             'payment_method' => $request->payment_method,
-            'payment_status' => $paymentStatus,
+            'payment_status' => 'pending',
         ]);
 
-        // Jika COD, langsung kurangi stok
         if ($request->payment_method === 'cod') {
-            foreach ($cart as $item) {
-                Product::where('id', $item['id'])->decrement('qty', $item['quantity']);
-            }
-
             Session::forget('cart');
-            return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat dan dibayar (COD).');
+            return redirect()->route('dashboard')->with('success', 'Pesanan COD berhasil dibuat dan menunggu konfirmasi admin.');
         }
 
-        // Midtrans
         $payload = [
             'transaction_details' => [
                 'order_id' => 'ORDER-' . $order->id . '-' . now()->timestamp,
@@ -224,5 +211,28 @@ class OrderController extends Controller
         $orders = $query->paginate(5)->withQueryString();
 
         return view('transactions.history', compact('orders'));
+    }
+
+    //Konfirmasi oleh Admin
+    public function confirmOrder($id)
+    {
+        $order = Order::with(['details'])->findOrFail($id);
+
+        if ($order->status === 'paid') {
+            return back()->with('info', 'Pesanan sudah dibayar.');
+        }
+
+        $order->status = 'paid';
+        $order->save();
+
+        Payment::where('order_id', $order->id)->update([
+            'payment_status' => 'paid'
+        ]);
+
+        foreach ($order->details as $detail) {
+            Product::where('id', $detail->product_id)->decrement('qty', $detail->quantity);
+        }
+
+        return back()->with('success', 'Pesanan berhasil dikonfirmasi dan stok dikurangi.');
     }
 }

@@ -68,9 +68,10 @@
             </div>
 
             <!-- Pagination -->
-            <div class="mt-8">
-                {{ $products->links() }}
+            <div class="mt-6">
+                {{ $products->links('vendor.pagination.custom-tailwind') }}
             </div>
+
         </div>
     </div>
 </x-app-layout>

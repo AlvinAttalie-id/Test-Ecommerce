@@ -20,6 +20,17 @@ class Payment extends Model
         'payment_status',
     ];
 
+    public function getPaymentStatusBadgeClassAttribute()
+    {
+        return match ($this->payment_status) {
+            'pending' => 'bg-yellow-100 text-yellow-800',
+            'paid' => 'bg-blue-100 text-blue-800',
+            'failed' => 'bg-red-100 text-red-800',
+            default => 'bg-gray-100 text-gray-800',
+        };
+    }
+
+
     //Relationships
     public function order()
     {

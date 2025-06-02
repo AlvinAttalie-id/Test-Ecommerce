@@ -13,6 +13,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Forms\Components\Select;
+use Filament\Tables\Actions\Action;
+use Filament\Notifications\Notification;
+use App\Models\Product;
+use Filament\Tables\Columns\SelectColumn;
 
 class TransactionResource extends Resource
 {
@@ -24,34 +28,7 @@ class TransactionResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Select::make('status')
-                ->label('Status Order')
-                ->options([
-                    'pending' => 'Pending',
-                    'paid' => 'Paid',
-                    'failed' => 'Failed',
-                    'shipped' => 'Shipped',
-                    'completed' => 'Completed',
-                ])
-                ->required(),
-
-            Select::make('payment_status')
-                ->label('Status Pembayaran')
-                ->options([
-                    'pending' => 'Pending',
-                    'paid' => 'Paid',
-                    'failed' => 'Failed',
-                ])
-                ->required()
-                ->default(fn($record) => $record?->payment?->payment_status)
-                ->disabled(fn($record) => $record?->payment === null)
-                ->visible(fn($record) => $record?->payment !== null)
-                ->afterStateUpdated(function ($state, $set, $get, $record) {
-                    if ($record && $record->payment) {
-                        $record->payment->payment_status = $state;
-                        $record->payment->save();
-                    }
-                }),
+            // Sudah tidak dipakai, hanya untuk halaman edit
         ]);
     }
 
@@ -66,6 +43,7 @@ class TransactionResource extends Resource
                 TextColumn::make('order_date')->label('Tanggal Order')->dateTime(),
                 TextColumn::make('shipping_address')->label('Alamat'),
                 TextColumn::make('payment.payment_method')->label('Metode Pembayaran'),
+
                 TextColumn::make('payment.payment_status')
                     ->label('Status Pembayaran')
                     ->badge()
@@ -75,23 +53,24 @@ class TransactionResource extends Resource
                         'failed' => 'danger',
                         default => 'gray',
                     }),
-                TextColumn::make('status')
+
+                SelectColumn::make('status')
                     ->label('Status Order')
-                    ->badge()
-                    ->color(fn($state) => match (true) {
-                        in_array($state, ['pending', 'paid', 'shipped']) => 'warning',
-                        $state === 'failed' => 'danger',
-                        $state === 'completed' => 'success',
-                        default => 'secondary',
-                    }),
+                    ->options([
+                        'pending' => 'Pending',
+                        'paid' => 'Paid',
+                        'shipped' => 'Shipped',
+                        'completed' => 'Completed',
+                        'failed' => 'Failed',
+                    ])
 
             ])
             ->filters([
                 Filter::make('payment_status')
                     ->label('Status Pembayaran')
                     ->form([
-                        Select::make('status')
-                            ->label('Status')
+                        Select::make('payment_status_value')
+                            ->label('Status Pembayaran')
                             ->options([
                                 'pending' => 'Pending',
                                 'paid' => 'Paid',
@@ -99,22 +78,87 @@ class TransactionResource extends Resource
                             ])
                             ->placeholder('Pilih status'),
                     ])
-                    ->query(function (Builder $query, array $data) {
-                        if (!empty($data['status'])) {
+                    ->query(function ($query, array $data) {
+                        if ($data['payment_status_value'] ?? false) {
                             $query->whereHas('payment', function ($q) use ($data) {
-                                $q->where('payment_status', $data['status']);
+                                $q->where('payment_status', $data['payment_status_value']);
                             });
                         }
-                        return $query;
+                    }),
+
+                Filter::make('status')
+                    ->label('Status Order')
+                    ->form([
+                        Select::make('order_status_value')
+                            ->label('Status Order')
+                            ->options([
+                                'pending' => 'Pending',
+                                'paid' => 'Paid',
+                                'shipped' => 'Shipped',
+                                'completed' => 'Completed',
+                                'failed' => 'Failed',
+                            ])
+                            ->placeholder('Pilih status'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if ($data['order_status_value'] ?? false) {
+                            $query->where('status', $data['order_status_value']);
+                        }
                     }),
             ])
+
             ->defaultSort('order_date', 'desc')
             ->modifyQueryUsing(
                 fn(Builder $query) =>
                 $query->with(['user', 'details.product', 'payment'])
             )
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make(), // opsional, tetap ditampilkan
+
+                Action::make('confirm')
+                    ->label('Konfirmasi')
+                    ->color('success')
+                    ->icon('heroicon-o-check-circle')
+                    ->visible(
+                        fn($record) =>
+                        $record->status === 'pending' &&
+                            $record->payment?->payment_method === 'cod' &&
+                            $record->payment?->payment_status === 'pending'
+                    )
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+                        // Update status order dan payment
+                        $record->update(['status' => 'paid']);
+                        $record->payment->update(['payment_status' => 'paid']);
+
+                        // Kurangi stok produk
+                        foreach ($record->details as $detail) {
+                            Product::where('id', $detail->product_id)
+                                ->decrement('qty', $detail->quantity);
+                        }
+
+                        Notification::make()
+                            ->title('Pesanan berhasil dikonfirmasi')
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('view')
+                    ->label('Lihat Detail')
+                    ->icon('heroicon-o-eye')
+                    ->modalHeading('Detail Transaksi')
+                    ->modalContent(function ($record) {
+                        $produkList = $record->details->map(function ($item) {
+                            return "- {$item->product->product_name} x {$item->quantity}";
+                        })->implode("<br>");
+
+                        return view('components.order-detail', [
+                            'order' => $record,
+                            'produkList' => $produkList,
+                        ]);
+                    })
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -132,7 +176,6 @@ class TransactionResource extends Resource
     {
         return [
             'index' => Pages\ListTransactions::route('/'),
-            'edit' => Pages\EditTransaction::route('/{record}/edit'),
         ];
     }
 }
