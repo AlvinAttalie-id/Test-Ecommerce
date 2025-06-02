@@ -14,13 +14,11 @@ use App\Services\MidtransService;
 
 class OrderController extends Controller
 {
-    // Halaman pesan langsung (single product)
     public function create(Product $product)
     {
         return view('order.create', compact('product'));
     }
 
-    // Proses pemesanan langsung (bukan dari cart)
     public function store(Request $request, MidtransService $midtrans)
     {
         $request->validate([
@@ -37,7 +35,7 @@ class OrderController extends Controller
             'user_id' => Auth::id(),
             'order_date' => now(),
             'total_price' => $subtotal,
-            'status' => 'pending',
+            'status' => $request->payment_method === 'cod' ? 'paid' : 'pending',
             'shipping_address' => $request->shipping_address,
         ]);
 
@@ -48,49 +46,42 @@ class OrderController extends Controller
             'price' => $product->price,
         ]);
 
-        if ($request->payment_method === 'midtrans') {
-            $payload = [
-                'transaction_details' => [
-                    'order_id' => 'ORDER-' . $order->id . '-' . now()->timestamp,
-                    'gross_amount' => $subtotal,
-                ],
-                'customer_details' => [
-                    'first_name' => Auth::user()->name,
-                    'email' => Auth::user()->email,
-                ],
-                'item_details' => [[
-                    'id' => $product->id,
-                    'price' => $product->price,
-                    'quantity' => $request->quantity,
-                    'name' => $product->product_name,
-                ]],
-            ];
-
-            $snap = $midtrans->createTransaction($payload);
-
-            Payment::create([
-                'order_id' => $order->id,
-                'payment_date' => now(),
-                'payment_method' => 'midtrans',
-                'payment_status' => 'pending',
-            ]);
-
-            return redirect($snap->redirect_url);
-        }
+        $paymentStatus = $request->payment_method === 'cod' ? 'paid' : 'pending';
 
         Payment::create([
             'order_id' => $order->id,
             'payment_date' => now(),
             'payment_method' => $request->payment_method,
-            'payment_status' => 'pending',
+            'payment_status' => $paymentStatus,
         ]);
 
-        return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat!');
-    }
+        // Jika COD, langsung kurangi stok
+        if ($request->payment_method === 'cod') {
+            $product->decrement('qty', $request->quantity);
+            return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat dan dibayar (COD).');
+        }
 
-    // ========================
-    // CART SESSION-BASED LOGIC
-    // ========================
+        // Midtrans
+        $payload = [
+            'transaction_details' => [
+                'order_id' => 'ORDER-' . $order->id . '-' . now()->timestamp,
+                'gross_amount' => $subtotal,
+            ],
+            'customer_details' => [
+                'first_name' => Auth::user()->name,
+                'email' => Auth::user()->email,
+            ],
+            'item_details' => [[
+                'id' => $product->id,
+                'price' => $product->price,
+                'quantity' => $request->quantity,
+                'name' => $product->product_name,
+            ]],
+        ];
+
+        $snap = $midtrans->createTransaction($payload);
+        return redirect($snap->redirect_url);
+    }
 
     public function cart()
     {
@@ -134,7 +125,6 @@ class OrderController extends Controller
     public function checkout()
     {
         $cart = session()->get('cart', []);
-
         if (empty($cart)) {
             return redirect()->route('order.cart')->with('error', 'Keranjang kosong. Tambahkan produk terlebih dahulu.');
         }
@@ -142,7 +132,6 @@ class OrderController extends Controller
         return view('order.checkout', compact('cart'));
     }
 
-    // Proses checkout dari keranjang
     public function storeFromCart(Request $request, MidtransService $midtrans)
     {
         $request->validate([
@@ -159,11 +148,13 @@ class OrderController extends Controller
             return $item['price'] * $item['quantity'];
         });
 
+        $orderStatus = $request->payment_method === 'cod' ? 'paid' : 'pending';
+
         $order = Order::create([
             'user_id' => Auth::id(),
             'order_date' => now(),
             'total_price' => $subtotal,
-            'status' => 'pending',
+            'status' => $orderStatus,
             'shipping_address' => $request->shipping_address,
         ]);
 
@@ -176,54 +167,50 @@ class OrderController extends Controller
             ]);
         }
 
-        if ($request->payment_method === 'midtrans') {
-            $payload = [
-                'transaction_details' => [
-                    'order_id' => 'ORDER-' . $order->id . '-' . now()->timestamp,
-                    'gross_amount' => $subtotal,
-                ],
-                'customer_details' => [
-                    'first_name' => Auth::user()->name,
-                    'email' => Auth::user()->email,
-                ],
-                'item_details' => collect($cart)->values()->map(function ($item) {
-                    return [
-                        'id' => $item['id'],
-                        'price' => $item['price'],
-                        'quantity' => $item['quantity'],
-                        'name' => $item['name'],
-                    ];
-                })->toArray(),
-            ];
+        $paymentStatus = $request->payment_method === 'cod' ? 'paid' : 'pending';
 
-            $snap = $midtrans->createTransaction($payload);
-
-            Payment::create([
-                'order_id' => $order->id,
-                'payment_date' => now(),
-                'payment_method' => 'midtrans',
-                'payment_status' => 'pending',
-            ]);
-
-            Session::forget('cart');
-            return redirect($snap->redirect_url);
-        }
-
-        // Jika bukan midtrans
         Payment::create([
             'order_id' => $order->id,
             'payment_date' => now(),
             'payment_method' => $request->payment_method,
-            'payment_status' => 'pending',
+            'payment_status' => $paymentStatus,
         ]);
 
+        // Jika COD, langsung kurangi stok
+        if ($request->payment_method === 'cod') {
+            foreach ($cart as $item) {
+                Product::where('id', $item['id'])->decrement('qty', $item['quantity']);
+            }
+
+            Session::forget('cart');
+            return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat dan dibayar (COD).');
+        }
+
+        // Midtrans
+        $payload = [
+            'transaction_details' => [
+                'order_id' => 'ORDER-' . $order->id . '-' . now()->timestamp,
+                'gross_amount' => $subtotal,
+            ],
+            'customer_details' => [
+                'first_name' => Auth::user()->name,
+                'email' => Auth::user()->email,
+            ],
+            'item_details' => collect($cart)->values()->map(function ($item) {
+                return [
+                    'id' => $item['id'],
+                    'price' => $item['price'],
+                    'quantity' => $item['quantity'],
+                    'name' => $item['name'],
+                ];
+            })->toArray(),
+        ];
+
+        $snap = $midtrans->createTransaction($payload);
         Session::forget('cart');
-        return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat!');
+        return redirect($snap->redirect_url);
     }
 
-    // ====================
-    // Riwayat Transaksi
-    // ====================
     public function history(Request $request)
     {
         $query = Order::with(['details.product', 'payment'])
