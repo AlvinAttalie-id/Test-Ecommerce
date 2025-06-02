@@ -20,7 +20,7 @@
                         {{ __('Produk') }}
                     </x-nav-link>
 
-                    <x-nav-link :href="null" :active="false" class="opacity-50 cursor-not-allowed">
+                    <x-nav-link :href="route('order.cart')" :active="request()->routeIs('order.cart')">
                         {{ __('Keranjang') }}
                     </x-nav-link>
 

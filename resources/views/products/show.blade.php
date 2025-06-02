@@ -61,6 +61,20 @@
                         class="inline-block px-6 py-3 mt-4 font-semibold text-white transition duration-200 bg-blue-600 rounded-lg shadow hover:bg-blue-700">
                         Pesan Sekarang
                     </a>
+
+                    {{-- Form Tambah ke Keranjang --}}
+                    <form action="{{ route('order.cart.add') }}" method="POST" class="inline-block">
+                        @csrf
+                        <input type="hidden" name="product_id" value="{{ $product->id }}">
+                        <div class="flex items-center mt-4 space-x-2">
+                            <input type="number" name="quantity" value="1" min="1"
+                                class="w-20 px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                            <button type="submit"
+                                class="px-5 py-2 font-semibold text-white transition bg-green-600 rounded-lg shadow hover:bg-green-700">
+                                Tambah ke Keranjang
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

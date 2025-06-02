@@ -7,18 +7,20 @@ use App\Models\DetailOrder;
 use App\Models\Payment;
 use App\Models\Product;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Services\MidtransService;
 
 class OrderController extends Controller
 {
-
+    // Halaman pesan langsung (single product)
     public function create(Product $product)
     {
         return view('order.create', compact('product'));
     }
 
+    // Proses pemesanan langsung (bukan dari cart)
     public function store(Request $request, MidtransService $midtrans)
     {
         $request->validate([
@@ -31,7 +33,6 @@ class OrderController extends Controller
         $product = Product::findOrFail($request->product_id);
         $subtotal = $product->price * $request->quantity;
 
-        // Buat Order
         $order = Order::create([
             'user_id' => Auth::id(),
             'order_date' => now(),
@@ -40,7 +41,6 @@ class OrderController extends Controller
             'shipping_address' => $request->shipping_address,
         ]);
 
-        // Detail Order
         DetailOrder::create([
             'order_id' => $order->id,
             'product_id' => $product->id,
@@ -48,7 +48,6 @@ class OrderController extends Controller
             'price' => $product->price,
         ]);
 
-        // === Jika Pembayaran via Midtrans ===
         if ($request->payment_method === 'midtrans') {
             $payload = [
                 'transaction_details' => [
@@ -69,7 +68,6 @@ class OrderController extends Controller
 
             $snap = $midtrans->createTransaction($payload);
 
-            // Simpan Payment Midtrans
             Payment::create([
                 'order_id' => $order->id,
                 'payment_date' => now(),
@@ -77,11 +75,9 @@ class OrderController extends Controller
                 'payment_status' => 'pending',
             ]);
 
-            // Redirect ke Midtrans Snap URL
             return redirect($snap->redirect_url);
         }
 
-        // === Jika bukan Midtrans (transfer / cod) ===
         Payment::create([
             'order_id' => $order->id,
             'payment_date' => now(),
@@ -92,6 +88,142 @@ class OrderController extends Controller
         return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat!');
     }
 
+    // ========================
+    // CART SESSION-BASED LOGIC
+    // ========================
+
+    public function cart()
+    {
+        $cart = Session::get('cart', []);
+        return view('order.cart', compact('cart'));
+    }
+
+    public function addToCart(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:product,id',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        $product = Product::findOrFail($request->product_id);
+        $cart = Session::get('cart', []);
+
+        if (isset($cart[$product->id])) {
+            $cart[$product->id]['quantity'] += $request->quantity;
+        } else {
+            $cart[$product->id] = [
+                'id' => $product->id,
+                'name' => $product->product_name,
+                'price' => $product->price,
+                'quantity' => $request->quantity,
+            ];
+        }
+
+        Session::put('cart', $cart);
+        return redirect()->route('order.cart')->with('success', 'Produk ditambahkan ke keranjang');
+    }
+
+    public function removeFromCart($id)
+    {
+        $cart = Session::get('cart', []);
+        unset($cart[$id]);
+        Session::put('cart', $cart);
+        return redirect()->route('order.cart')->with('success', 'Produk dihapus dari keranjang');
+    }
+
+    public function checkout()
+    {
+        $cart = session()->get('cart', []);
+
+        if (empty($cart)) {
+            return redirect()->route('order.cart')->with('error', 'Keranjang kosong. Tambahkan produk terlebih dahulu.');
+        }
+
+        return view('order.checkout', compact('cart'));
+    }
+
+    // Proses checkout dari keranjang
+    public function storeFromCart(Request $request, MidtransService $midtrans)
+    {
+        $request->validate([
+            'shipping_address' => 'required|string',
+            'payment_method' => 'required|string',
+        ]);
+
+        $cart = Session::get('cart', []);
+        if (empty($cart)) {
+            return redirect()->route('order.cart')->with('error', 'Keranjang kosong.');
+        }
+
+        $subtotal = collect($cart)->sum(function ($item) {
+            return $item['price'] * $item['quantity'];
+        });
+
+        $order = Order::create([
+            'user_id' => Auth::id(),
+            'order_date' => now(),
+            'total_price' => $subtotal,
+            'status' => 'pending',
+            'shipping_address' => $request->shipping_address,
+        ]);
+
+        foreach ($cart as $item) {
+            DetailOrder::create([
+                'order_id' => $order->id,
+                'product_id' => $item['id'],
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+            ]);
+        }
+
+        if ($request->payment_method === 'midtrans') {
+            $payload = [
+                'transaction_details' => [
+                    'order_id' => 'ORDER-' . $order->id . '-' . now()->timestamp,
+                    'gross_amount' => $subtotal,
+                ],
+                'customer_details' => [
+                    'first_name' => Auth::user()->name,
+                    'email' => Auth::user()->email,
+                ],
+                'item_details' => collect($cart)->values()->map(function ($item) {
+                    return [
+                        'id' => $item['id'],
+                        'price' => $item['price'],
+                        'quantity' => $item['quantity'],
+                        'name' => $item['name'],
+                    ];
+                })->toArray(),
+            ];
+
+            $snap = $midtrans->createTransaction($payload);
+
+            Payment::create([
+                'order_id' => $order->id,
+                'payment_date' => now(),
+                'payment_method' => 'midtrans',
+                'payment_status' => 'pending',
+            ]);
+
+            Session::forget('cart');
+            return redirect($snap->redirect_url);
+        }
+
+        // Jika bukan midtrans
+        Payment::create([
+            'order_id' => $order->id,
+            'payment_date' => now(),
+            'payment_method' => $request->payment_method,
+            'payment_status' => 'pending',
+        ]);
+
+        Session::forget('cart');
+        return redirect()->route('dashboard')->with('success', 'Pesanan berhasil dibuat!');
+    }
+
+    // ====================
+    // Riwayat Transaksi
+    // ====================
     public function history(Request $request)
     {
         $query = Order::with(['details.product', 'payment'])
