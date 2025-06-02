@@ -11,14 +11,16 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        $categories = Category::all();
-        $query = Product::with('category');
+        $query = Product::query()->latest();
 
-        if ($request->has('category_id') && $request->category_id != '') {
+        if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
 
-        $products = $query->paginate(10);
+        $products = $query->paginate(12); // pagination dilakukan setelah filter, tanpa ->where('qty', '>', 0)
+
+        $categories = Category::all();
+
         return view('products.index', compact('products', 'categories'));
     }
 

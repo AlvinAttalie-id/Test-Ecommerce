@@ -59,9 +59,11 @@
 
 
         <!-- Page Content -->
-        <main>
+        <main class="pb-12 sm:pb-0">
             {{ $slot }}
         </main>
+
+        @include('layouts.footer')
     </div>
 
     @stack('scripts')

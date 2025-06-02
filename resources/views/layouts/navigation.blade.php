@@ -92,6 +92,10 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('transactions.history')" :active="request()->routeIs('transactions.history')">
+                {{ __('Riwayat Transaksi') }}
+            </x-responsive-nav-link>
         </div>
 
         <!-- Responsive Settings Options -->
