@@ -1,6 +1,3 @@
-Tentu! Berikut adalah isi `README.md` dengan format Markdown siap pakai:
-
-````markdown
 # 🛒 Laravel E-Commerce Project
 
 Ini adalah proyek aplikasi e-commerce berbasis Laravel yang dibangun menggunakan Laravel 12, dengan fitur autentikasi, manajemen produk, checkout, dan integrasi pembayaran Midtrans.
@@ -84,8 +81,6 @@ Atau gunakan script dev otomatis:
 ```bash
 composer run dev
 ```
-
----
 
 ## 👥 Data Dummy Akun Login
 
