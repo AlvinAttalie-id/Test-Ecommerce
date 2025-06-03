@@ -1,61 +1,152 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+Tentu! Berikut adalah isi `README.md` dengan format Markdown siap pakai:
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+````markdown
+# 🛒 Laravel E-Commerce Project
 
-## About Laravel
+Ini adalah proyek aplikasi e-commerce berbasis Laravel yang dibangun menggunakan Laravel 12, dengan fitur autentikasi, manajemen produk, checkout, dan integrasi pembayaran Midtrans.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## ✨ Fitur Utama
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Autentikasi dan otorisasi (Laravel Breeze & Spatie Permission)
+- Manajemen produk & kategori
+- Keranjang belanja
+- Checkout langsung dan dari keranjang
+- Pembayaran online via Midtrans
+- Dashboard admin (Filament Admin Panel)
+- Avatar pengguna otomatis (Laravolt Avatar)
+- Queue listener & notifikasi
+- Responsive frontend dengan Tailwind CSS & Alpine.js
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 🔧 Teknologi yang Digunakan
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Backend
+- PHP 8.2
+- Laravel 12
+- Laravel Breeze
+- Filament Admin Panel
+- Spatie Laravel Permission
+- Midtrans PHP SDK
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Frontend
+- Tailwind CSS
+- Alpine.js
+- Vite
 
-## Laravel Sponsors
+### Dev Tools
+- Laravel Sail (opsional)
+- Pest (unit testing)
+- Laravel Pint (code style)
+- Concurrently (parallel dev commands)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+---
 
-### Premium Partners
+## ⚙️ Instalasi
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 1. Clone Repository
+```bash
+git clone https://github.com/username/nama-repo.git
+cd nama-repo
+````
 
-## Contributing
+### 2. Install Dependencies
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+composer install
+npm install
+```
 
-## Code of Conduct
+### 3. Setup Environment
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-## Security Vulnerabilities
+### 4. Setup Database
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan migrate --seed
+```
 
-## License
+### 5. Jalankan Aplikasi
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+npm run dev
+php artisan serve
+```
+
+Atau gunakan script dev otomatis:
+
+```bash
+composer run dev
+```
+
+---
+
+## 👥 Data Dummy Akun Login
+
+Berikut adalah akun-akun default setelah menjalankan `php artisan migrate --seed`:
+
+### 👨‍💼 Admin
+
+* `user1@example.com`
+* `user2@example.com`
+
+### 👤 Pengguna Biasa
+
+* `user3@example.com`
+* `user4@example.com`
+* `user5@example.com`
+* `user6@example.com`
+* `user7@example.com`
+* `user8@example.com`
+* `user9@example.com`
+* `user10@example.com`
+
+> **Password semua akun:** `password`
+
+---
+
+## 💳 Integrasi Midtrans
+
+1. Daftar akun sandbox di [https://dashboard.midtrans.com/](https://dashboard.midtrans.com/)
+2. Masukkan `MIDTRANS_SERVER_KEY` dan `MIDTRANS_CLIENT_KEY` ke file `.env`
+3. Gunakan endpoint checkout yang telah tersedia di aplikasi
+
+---
+
+## 🧪 Testing
+
+Untuk menjalankan pengujian:
+
+```bash
+php artisan test
+```
+
+---
+
+## 🛠 Scripts Tambahan
+
+```bash
+composer dev          # Jalankan server + queue + vite
+composer test         # Clear config & jalankan test
+npm run build         # Build asset untuk production
+```
+
+---
+
+## 🧑‍💻 Kontributor
+
+* **Alvin Zacky Attalie** — Developer
+
+---
+
+## 📄 Lisensi
+
+Proyek ini berlisensi MIT.
+
+```
